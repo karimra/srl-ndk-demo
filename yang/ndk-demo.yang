@@ -1,0 +1,41 @@
+module ndk-demo {
+    yang-version "1.1";
+
+    // namespace
+    namespace "urn:srl_sdk_apps/ndk-demo";
+    prefix "srl_sdk_apps-ndk-demo";
+
+    // description
+    description
+        "This module defines configuration and operational state data related to the ndk-demo.";
+
+    // revision
+    revision "2020-08-06" {
+        description
+          "ndk-demo 0.0.1";
+    }
+
+    grouping ndk-demo-top {
+        container ndk-demo {
+            leaf name {
+                type string {
+                    length "1..64";
+                }
+            }
+            leaf counter {
+                config false;
+                type uint64;
+            }
+            list objects {
+                key "key";
+                leaf key {
+                    type string {
+                        length "1..8";
+                    }
+                }
+            }
+        }
+    }
+    
+    uses ndk-demo-top;
+}

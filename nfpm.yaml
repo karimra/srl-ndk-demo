@@ -1,0 +1,25 @@
+# nfpm example config file
+name: "goNdkDemo"
+arch: "amd64"
+platform: "linux"
+version: "v1"
+section: "default"
+priority: "extra"
+replaces:
+- goNdkDemo
+provides:
+- goNdkDemo
+maintainer: "Karim Radhouani <karim.radhouani@nokia.com>"
+description: |
+  "NDK Demo agent"
+vendor: "Nokia"
+license: "BSD 2"
+bindir: "/opt/srlinux/usr/bin/"
+files:
+  ./builds/ndk-demo: "/opt/srlinux/usr/bin/ndk-demo"
+  ./yang/ndk-demo.yang: "/opt/ndk-demo/yang/ndk-demo.yang"
+  ./yml/ndk-demo.yml: "/etc/opt/srlinux/appmgr/ndk-demo.yml"
+config_files:
+overrides:
+  rpm:
+    scripts:
