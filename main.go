@@ -44,7 +44,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		appIdChan := app.StartAppIdNotificationStream(ctx, 0)
+		appIdChan := app.StartAppIdNotificationStream(ctx, nil)
 		for {
 			select {
 			case event := <-appIdChan:
@@ -116,19 +116,19 @@ func main() {
 	}()
 	//time.Sleep(time.Second)
 	// Route notifications
-	// wg.Add(1)
-	// go func() {
-	// 	defer wg.Done()
-	// 	appIdChan := app.StartRouteNotificationStream(ctx, "", nil, 0)
-	// 	for {
-	// 		select {
-	// 		case event := <-appIdChan:
-	// 			log.Printf("Route notification: %+v", event)
-	// 		case <-ctx.Done():
-	// 			return
-	// 		}
-	// 	}
-	// }()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		appIdChan := app.StartRouteNotificationStream(ctx, "default", nil, 0)
+		for {
+			select {
+			case event := <-appIdChan:
+				log.Printf("Route notification: %+v", event)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	wg.Wait()
 }
