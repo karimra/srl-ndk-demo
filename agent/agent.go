@@ -324,7 +324,7 @@ CREATESUB:
 	}
 	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
 }
-func (a *Agent) StartAppIdNotificationStream(ctx context.Context, id uint32) chan *ndk.NotificationStreamResponse {
+func (a *Agent) StartAppIdNotificationStream(ctx context.Context, id *uint32) chan *ndk.NotificationStreamResponse {
 CREATESUB:
 	// get subscription and streamID
 	notificationResponse, err := a.SdkMgrService.Client.NotificationRegister(ctx,
@@ -345,13 +345,20 @@ CREATESUB:
 		goto CREATESUB
 	}
 	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
-		Op:       ndk.NotificationRegisterRequest_AddSubscription,
-		StreamId: notificationResponse.GetStreamId(),
-		SubscriptionTypes: &ndk.NotificationRegisterRequest_Appid{ // AppId
-			Appid: &ndk.AppIdentSubscriptionRequest{
-				Key: &ndk.AppIdentKey{Id: id},
+		Op:                ndk.NotificationRegisterRequest_AddSubscription,
+		StreamId:          notificationResponse.GetStreamId(),
+		SubscriptionTypes: &ndk.NotificationRegisterRequest_Appid{},
+	}
+	if id != nil {
+		notificationRegisterRequest = &ndk.NotificationRegisterRequest{
+			Op:       ndk.NotificationRegisterRequest_AddSubscription,
+			StreamId: notificationResponse.GetStreamId(),
+			SubscriptionTypes: &ndk.NotificationRegisterRequest_Appid{ // AppId
+				Appid: &ndk.AppIdentSubscriptionRequest{
+					Key: &ndk.AppIdentKey{Id: *id},
+				},
 			},
-		},
+		}
 	}
 	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
 }
