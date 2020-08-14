@@ -39,7 +39,7 @@ func main() {
 			}
 		}
 	}()
-	//time.Sleep(time.Second)
+
 	// AppId notifications
 	wg.Add(1)
 	go func() {
@@ -54,7 +54,7 @@ func main() {
 			}
 		}
 	}()
-	//time.Sleep(time.Second)
+
 	// BFDSession notifications
 	wg.Add(1)
 	go func() {
@@ -69,7 +69,7 @@ func main() {
 			}
 		}
 	}()
-	//time.Sleep(time.Second)
+
 	// NwInst notifications
 	wg.Add(1)
 	go func() {
@@ -84,7 +84,7 @@ func main() {
 			}
 		}
 	}()
-	//time.Sleep(time.Second)
+
 	// Interface notifications
 	wg.Add(1)
 	go func() {
@@ -99,7 +99,7 @@ func main() {
 			}
 		}
 	}()
-	//time.Sleep(time.Second)
+
 	// LLDPNeighbor notifications
 	wg.Add(1)
 	go func() {
@@ -114,21 +114,21 @@ func main() {
 			}
 		}
 	}()
-	//time.Sleep(time.Second)
+
 	// Route notifications
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		appIdChan := app.StartRouteNotificationStream(ctx, "default", nil, 0)
-		for {
-			select {
-			case event := <-appIdChan:
-				log.Printf("Route notification: %+v", event)
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+	// wg.Add(1)
+	// go func() {
+	// 	defer wg.Done()
+	// 	appIdChan := app.StartRouteNotificationStream(ctx, "default", nil, 0)
+	// 	for {
+	// 		select {
+	// 		case event := <-appIdChan:
+	// 			log.Printf("Route notification: %+v", event)
+	// 		case <-ctx.Done():
+	// 			return
+	// 		}
+	// 	}
+	// }()
 
 	wg.Wait()
 }
