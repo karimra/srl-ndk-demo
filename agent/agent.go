@@ -199,22 +199,27 @@ CREATESUB:
 		time.Sleep(a.RetryTimer)
 		goto CREATESUB
 	}
-	key := new(ndk.LldpNeighborKeyPb)
+	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
+		Op:                ndk.NotificationRegisterRequest_AddSubscription,
+		StreamId:          notificationResponse.GetStreamId(),
+		SubscriptionTypes: &ndk.NotificationRegisterRequest_LldpNeighbor{},
+	}
+
 	if ifName != "" || chassisID != "" || chassisType != "" {
-		key = &ndk.LldpNeighborKeyPb{
+		key := &ndk.LldpNeighborKeyPb{
 			InterfaceName: ifName,
 			// ChassisId:     chassisID,
 			// ChassisType: ndk.LldpNeighborKeyPb_CHASSIS_COMPONENT,
 		}
-	}
-	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
-		Op:       ndk.NotificationRegisterRequest_AddSubscription,
-		StreamId: notificationResponse.GetStreamId(),
-		SubscriptionTypes: &ndk.NotificationRegisterRequest_LldpNeighbor{ // LLDPNeigh
-			LldpNeighbor: &ndk.LldpNeighborSubscriptionRequest{
-				Key: key,
+		notificationRegisterRequest = &ndk.NotificationRegisterRequest{
+			Op:       ndk.NotificationRegisterRequest_AddSubscription,
+			StreamId: notificationResponse.GetStreamId(),
+			SubscriptionTypes: &ndk.NotificationRegisterRequest_LldpNeighbor{ // LLDPNeigh
+				LldpNeighbor: &ndk.LldpNeighborSubscriptionRequest{
+					Key: key,
+				},
 			},
-		},
+		}
 	}
 	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
 }
