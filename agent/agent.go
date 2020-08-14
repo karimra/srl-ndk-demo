@@ -20,7 +20,7 @@ type HandleFunc func(context.Context, *ndk.NotificationStreamResponse)
 type Agent struct {
 	Name       string
 	RetryTimer time.Duration
-	AppID uint32
+	AppID      uint32
 
 	GRPCConn *grpc.ClientConn
 
@@ -43,26 +43,26 @@ type Agent struct {
 		Client ndk.SdkMgrNextHopGroupServiceClient
 	}
 
-	m          *sync.RWMutex
-	Config     map[*ndk.ConfigKey]*ndk.ConfigData
-	NwInst     map[*ndk.NetworkInstanceKey]*ndk.NetworkInstanceData
-	Intf       map[*ndk.InterfaceKey]*ndk.InterfaceData
-	AppIDs     map[*ndk.AppIdentKey]*ndk.AppIdentData
-	LLDPNeigh  map[*ndk.LldpNeighborKeyPb]*ndk.LldpNeighborDataPb
-	BFDSession map[*ndk.BfdmgrGeneralSessionKeyPb]*ndk.BfdmgrGeneralSessionDataPb
-	IPRoute    map[*ndk.RouteKeyPb]*ndk.RoutePb
+	m            *sync.RWMutex
+	Config       map[string]*ndk.ConfigData           // keys is jsPath
+	NwInst       map[string]*ndk.NetworkInstanceData  // keys is instance name
+	Intf         map[string]*ndk.InterfaceData        // keys is interface name
+	AppIDs       map[uint32]*ndk.AppIdentData         // keys is appIdent
+	LLDPNeighbor map[string][]*ndk.LldpNeighborDataPb // key is interfaceName, if there is a neighbor, there is a local interface
+	BFDSession   *BfdSession
+	IPRoute      map[string]map[string]*ndk.RoutePb // instanceName / ipAddr/prefixLen
 }
 
 func NewAgent(ctx context.Context, name string) (*Agent, error) {
 	a := &Agent{
-		m:          new(sync.RWMutex),
-		Config:     make(map[*ndk.ConfigKey]*ndk.ConfigData),
-		NwInst:     make(map[*ndk.NetworkInstanceKey]*ndk.NetworkInstanceData),
-		Intf:       make(map[*ndk.InterfaceKey]*ndk.InterfaceData),
-		AppIDs:     make(map[*ndk.AppIdentKey]*ndk.AppIdentData),
-		LLDPNeigh:  make(map[*ndk.LldpNeighborKeyPb]*ndk.LldpNeighborDataPb),
-		BFDSession: make(map[*ndk.BfdmgrGeneralSessionKeyPb]*ndk.BfdmgrGeneralSessionDataPb),
-		IPRoute:    make(map[*ndk.RouteKeyPb]*ndk.RoutePb),
+		m:            new(sync.RWMutex),
+		Config:       make(map[string]*ndk.ConfigData),
+		NwInst:       make(map[string]*ndk.NetworkInstanceData),
+		Intf:         make(map[string]*ndk.InterfaceData),
+		AppIDs:       make(map[uint32]*ndk.AppIdentData),
+		LLDPNeighbor: make(map[string][]*ndk.LldpNeighborDataPb),
+		BFDSession:   newBfdSession(),
+		IPRoute:      make(map[string]map[string]*ndk.RoutePb),
 	}
 	a.Name = name
 	a.RetryTimer = retryTimeout

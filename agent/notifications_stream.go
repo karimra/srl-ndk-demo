@@ -48,7 +48,9 @@ CREATESUB:
 		goto CREATESUB
 	}
 	log.Printf("NwInst notification registration status: %s, subscriptionID=%d, streamID=%d",
-		notificationResponse.Status, notificationResponse.GetSubId(), notificationResponse.GetStreamId())
+		notificationResponse.Status,
+		notificationResponse.GetSubId(),
+		notificationResponse.GetStreamId())
 
 	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
 		Op:       ndk.NotificationRegisterRequest_AddSubscription,
@@ -316,12 +318,7 @@ func (a *Agent) startNotificationStream(ctx context.Context, req *ndk.Notificati
 			time.Sleep(a.RetryTimer)
 			goto GETSTREAM
 		}
-
 		for {
-			// select {
-			// case <-ctx.Done():
-			// 	return
-			// default:
 			ev, err := stream.Recv()
 			if err == io.EOF {
 				log.Printf("agent %s received EOF for stream %v", a.Name, req.GetSubscriptionTypes())
@@ -333,9 +330,12 @@ func (a *Agent) startNotificationStream(ctx context.Context, req *ndk.Notificati
 				log.Printf("agent %s failed to receive notification: %v", a.Name, err)
 				continue
 			}
-			streamChan <- ev
+			select {
+			case <-ctx.Done():
+				return
+			case streamChan <- ev:
+			}
 		}
-		//}
 	}()
 	return streamChan
 }

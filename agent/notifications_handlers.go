@@ -28,6 +28,9 @@ func (a *Agent) HandleNotification(notif *ndk.Notification) error {
 func (a *Agent) handleAppId(n *ndk.AppIdentNotification) error {
 	switch n.GetOp() {
 	case ndk.SdkMgrOperation_Create:
+		a.m.Lock()
+		defer a.m.Unlock()
+		a.AppIDs[n.GetKey().Id] = n.GetData()
 	case ndk.SdkMgrOperation_Delete:
 	case ndk.SdkMgrOperation_Change:
 	}
@@ -44,6 +47,9 @@ func (a *Agent) handleConfig(n *ndk.ConfigNotification) error {
 func (a *Agent) handleIntf(n *ndk.InterfaceNotification) error {
 	switch n.GetOp() {
 	case ndk.SdkMgrOperation_Create:
+		a.m.Lock()
+		defer a.m.Unlock()
+		a.Intf[n.GetKey().IfName] = n.GetData()
 	case ndk.SdkMgrOperation_Delete:
 	case ndk.SdkMgrOperation_Change:
 	}
@@ -52,6 +58,9 @@ func (a *Agent) handleIntf(n *ndk.InterfaceNotification) error {
 func (a *Agent) handleNwInst(n *ndk.NetworkInstanceNotification) error {
 	switch n.GetOp() {
 	case ndk.SdkMgrOperation_Create:
+		a.m.Lock()
+		defer a.m.Unlock()
+		a.NwInst[n.GetKey().InstName] = n.GetData()
 	case ndk.SdkMgrOperation_Delete:
 	case ndk.SdkMgrOperation_Change:
 	}
