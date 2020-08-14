@@ -223,7 +223,7 @@ CREATESUB:
 	}
 	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
 }
-func (a *Agent) StartBFDSessionNotificationStream(ctx context.Context, srcIP, dstIP net.IP, instance uint32) chan *ndk.NotificationStreamResponse {
+func (a *Agent) StartBFDSessionNotificationStream(ctx context.Context, srcIP, dstIP net.IP, instance *uint32) chan *ndk.NotificationStreamResponse {
 CREATESUB:
 	// get subscription and streamID
 	notificationResponse, err := a.SdkMgrService.Client.NotificationRegister(ctx,
@@ -246,20 +246,28 @@ CREATESUB:
 	bfdSession := &ndk.BfdSessionSubscriptionRequest{
 		Key: &ndk.BfdmgrGeneralSessionKeyPb{},
 	}
+	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
+		Op:                ndk.NotificationRegisterRequest_AddSubscription,
+		StreamId:          notificationResponse.GetStreamId(),
+		SubscriptionTypes: &ndk.NotificationRegisterRequest_BfdSession{},
+	}
 	if srcIP != nil {
 		bfdSession.Key.SrcIpAddr = &ndk.IpAddressPb{Addr: srcIP}
 	}
 	if dstIP != nil {
 		bfdSession.Key.DstIpAddr = &ndk.IpAddressPb{Addr: dstIP}
 	}
-	bfdSession.Key.InstanceId = instance
-	// bfdSession.Key.Type =
-	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
-		Op:       ndk.NotificationRegisterRequest_AddSubscription,
-		StreamId: notificationResponse.GetStreamId(),
-		SubscriptionTypes: &ndk.NotificationRegisterRequest_BfdSession{ // BFDSession
-			BfdSession: bfdSession,
-		},
+	if instance != nil {
+		bfdSession.Key.InstanceId = *instance
+	}
+	if srcIP != nil || dstIP != nil || instance != nil {
+		notificationRegisterRequest = &ndk.NotificationRegisterRequest{
+			Op:       ndk.NotificationRegisterRequest_AddSubscription,
+			StreamId: notificationResponse.GetStreamId(),
+			SubscriptionTypes: &ndk.NotificationRegisterRequest_BfdSession{ // BFDSession
+				BfdSession: bfdSession,
+			},
+		}
 	}
 	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
 }

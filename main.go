@@ -59,7 +59,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		appIdChan := app.StartBFDSessionNotificationStream(ctx, nil, nil, 0)
+		appIdChan := app.StartBFDSessionNotificationStream(ctx, nil, nil, nil)
 		for {
 			select {
 			case event := <-appIdChan:
