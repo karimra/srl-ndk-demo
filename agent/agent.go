@@ -161,20 +161,21 @@ CREATESUB:
 		time.Sleep(a.RetryTimer)
 		goto CREATESUB
 	}
-	key := new(ndk.InterfaceKey)
+
+	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
+		Op:                ndk.NotificationRegisterRequest_AddSubscription,
+		StreamId:          notificationResponse.GetStreamId(),
+		SubscriptionTypes: &ndk.NotificationRegisterRequest_Intf{},
+	}
 	if ifName != "" {
-		key = &ndk.InterfaceKey{
+		key := &ndk.InterfaceKey{
 			IfName: ifName,
 		}
-	}
-	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
-		Op:       ndk.NotificationRegisterRequest_AddSubscription,
-		StreamId: notificationResponse.GetStreamId(),
-		SubscriptionTypes: &ndk.NotificationRegisterRequest_Intf{ // Intf
+		notificationRegisterRequest.SubscriptionTypes = &ndk.NotificationRegisterRequest_Intf{
 			Intf: &ndk.InterfaceSubscriptionRequest{
 				Key: key,
 			},
-		},
+		}
 	}
 	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
 }
