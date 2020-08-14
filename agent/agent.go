@@ -291,6 +291,16 @@ CREATESUB:
 		time.Sleep(a.RetryTimer)
 		goto CREATESUB
 	}
+
+	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
+		Op:       ndk.NotificationRegisterRequest_AddSubscription,
+		StreamId: notificationResponse.GetStreamId(),
+		SubscriptionTypes: &ndk.NotificationRegisterRequest_Route{ // route
+			Route: &ndk.IpRouteSubscriptionRequest{
+				//Key: key,
+			},
+		},
+	}
 	key := new(ndk.RouteKeyPb)
 	if netInstance != "" {
 		key.NetInstName = netInstance
@@ -301,14 +311,16 @@ CREATESUB:
 			PrefixLength: prefixLen,
 		}
 	}
-	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
-		Op:       ndk.NotificationRegisterRequest_AddSubscription,
-		StreamId: notificationResponse.GetStreamId(),
-		SubscriptionTypes: &ndk.NotificationRegisterRequest_Route{ // route
-			Route: &ndk.IpRouteSubscriptionRequest{
-				Key: key,
+	if netInstance != "" || ipAddr != nil {
+		notificationRegisterRequest = &ndk.NotificationRegisterRequest{
+			Op:       ndk.NotificationRegisterRequest_AddSubscription,
+			StreamId: notificationResponse.GetStreamId(),
+			SubscriptionTypes: &ndk.NotificationRegisterRequest_Route{ // route
+				Route: &ndk.IpRouteSubscriptionRequest{
+					Key: key,
+				},
 			},
-		},
+		}
 	}
 	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
 }
