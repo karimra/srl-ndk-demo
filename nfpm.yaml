@@ -14,12 +14,15 @@ description: |
   "NDK Demo agent"
 vendor: "Nokia"
 license: "BSD 2"
-bindir: "/opt/srlinux/usr/bin/"
-files:
-  ./builds/ndk-demo: "/opt/srlinux/usr/bin/ndk-demo"
-  ./yang/ndk-demo.yang: "/opt/ndk-demo/yang/ndk-demo.yang"
-  ./yml/ndk-demo.yml: "/etc/opt/srlinux/appmgr/ndk-demo.yml"
-config_files:
+
+contents:
+  - src: ./builds/ndk-demo
+    dst: "/opt/srlinux/usr/bin/ndk-demo"
+  - src: yang/ndk-demo.yang
+    dst: /opt/ndk-demo/yang/ndk-demo.yang
+  - src: ./yml/ndk-demo.yml
+    dst: "/etc/opt/srlinux/appmgr/ndk-demo.yml"
+
 overrides:
   rpm:
     scripts:
