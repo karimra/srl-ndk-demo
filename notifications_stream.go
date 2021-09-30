@@ -13,7 +13,7 @@ import (
 func (a *Agent) StartConfigNotificationStream(ctx context.Context) chan *ndk.NotificationStreamResponse {
 CREATESUB:
 	// get subscription and streamID
-	notificationResponse, err := a.SdkMgrService.Client.NotificationRegister(ctx,
+	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
 		&ndk.NotificationRegisterRequest{
 			Op: ndk.NotificationRegisterRequest_Create,
 		})
@@ -37,7 +37,7 @@ CREATESUB:
 func (a *Agent) StartNwInstNotificationStream(ctx context.Context) chan *ndk.NotificationStreamResponse {
 CREATESUB:
 	// get subscription and streamID
-	notificationResponse, err := a.SdkMgrService.Client.NotificationRegister(ctx,
+	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
 		&ndk.NotificationRegisterRequest{
 			Op: ndk.NotificationRegisterRequest_Create,
 		})
@@ -64,7 +64,7 @@ CREATESUB:
 func (a *Agent) StartInterfaceNotificationStream(ctx context.Context, ifName string) chan *ndk.NotificationStreamResponse {
 CREATESUB:
 	// get subscription and streamID
-	notificationResponse, err := a.SdkMgrService.Client.NotificationRegister(ctx,
+	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
 		&ndk.NotificationRegisterRequest{
 			Op: ndk.NotificationRegisterRequest_Create,
 		})
@@ -102,7 +102,7 @@ CREATESUB:
 func (a *Agent) StartLLDPNeighNotificationStream(ctx context.Context, ifName, chassisType, chassisID string) chan *ndk.NotificationStreamResponse {
 CREATESUB:
 	// get subscription and streamID
-	notificationResponse, err := a.SdkMgrService.Client.NotificationRegister(ctx,
+	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
 		&ndk.NotificationRegisterRequest{
 			Op: ndk.NotificationRegisterRequest_Create,
 		})
@@ -146,7 +146,7 @@ CREATESUB:
 func (a *Agent) StartBFDSessionNotificationStream(ctx context.Context, srcIP, dstIP net.IP, instance *uint32) chan *ndk.NotificationStreamResponse {
 CREATESUB:
 	// get subscription and streamID
-	notificationResponse, err := a.SdkMgrService.Client.NotificationRegister(ctx,
+	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
 		&ndk.NotificationRegisterRequest{
 			Op: ndk.NotificationRegisterRequest_Create,
 		})
@@ -194,7 +194,7 @@ CREATESUB:
 func (a *Agent) StartRouteNotificationStream(ctx context.Context, netInstance string, ipAddr net.IP, prefixLen uint32) chan *ndk.NotificationStreamResponse {
 CREATESUB:
 	// get subscription and streamID
-	notificationResponse, err := a.SdkMgrService.Client.NotificationRegister(ctx,
+	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
 		&ndk.NotificationRegisterRequest{
 			Op: ndk.NotificationRegisterRequest_Create,
 		})
@@ -247,7 +247,7 @@ CREATESUB:
 func (a *Agent) StartAppIdNotificationStream(ctx context.Context, id *uint32) chan *ndk.NotificationStreamResponse {
 CREATESUB:
 	// get subscription and streamID
-	notificationResponse, err := a.SdkMgrService.Client.NotificationRegister(ctx,
+	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
 		&ndk.NotificationRegisterRequest{
 			Op: ndk.NotificationRegisterRequest_Create,
 		})
@@ -289,13 +289,13 @@ func (a *Agent) startNotificationStream(ctx context.Context, req *ndk.Notificati
 		defer close(streamChan)
 		defer func() {
 			log.Printf("agent %s deleting subscription %d", a.Name, subID)
-			a.SdkMgrService.Client.NotificationRegister(context.TODO(), &ndk.NotificationRegisterRequest{
+			a.SdkMgrServiceClient.NotificationRegister(context.TODO(), &ndk.NotificationRegisterRequest{
 				Op:    ndk.NotificationRegisterRequest_DeleteSubscription,
 				SubId: subID,
 			})
 		}()
 	GETSTREAM:
-		registerResponse, err := a.SdkMgrService.Client.NotificationRegister(ctx, req)
+		registerResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx, req)
 		if err != nil {
 			log.Printf("agent %s failed registering to notification with req=%+v: %v", a.Name, req, err)
 			log.Printf("agent %s retrying in %s", a.Name, a.RetryTimer)
