@@ -1,3 +1,3 @@
-# srl-ndk-demo
+# srlinux-sdk
 
-Code under agent/ can be reused to create your own SRL app
+SRLinux Golang SDK for writing NDK Applications
