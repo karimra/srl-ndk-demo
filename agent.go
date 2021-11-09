@@ -4,62 +4,19 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/karimra/gnmic/target"
 	"github.com/karimra/gnmic/types"
-	ndk "github.com/karimra/go-srl-ndk"
+	"github.com/nokia/srlinux-ndk-go/v21/ndk"
 	"google.golang.org/grpc"
 )
 
 var grpcAddress = "localhost:50053"
-
-var retryTimeout = 5 * time.Second
-
-type HandleFunc func(context.Context, *ndk.Notification) error
-type AppIdHandleFunc func(context.Context, *ndk.AppIdentNotification) error
-type ConfigHandleFunc func(context.Context, []*ndk.ConfigNotification) error
-type InterfaceHandleFunc func(context.Context, *ndk.InterfaceNotification) error
-type NwInstHandleFunc func(context.Context, *ndk.NetworkInstanceNotification) error
-type LLDPNeighborsHandleFunc func(context.Context, *ndk.LldpNeighborNotification) error
-type BFDSessionHandleFunc func(context.Context, *ndk.BfdSessionNotification) error
-type RouteHandleFunc func(context.Context, *ndk.IpRouteNotification) error
-
-type Handlers struct {
-	Create HandleFunc
-	Change HandleFunc
-	Delete HandleFunc
-}
-
-type NotificationHandlers struct {
-	// AppId Handlers
-	AppIdCreate AppIdHandleFunc
-	AppIdChange AppIdHandleFunc
-	AppIdDelete AppIdHandleFunc
-	// Config Handler
-	ConfigHandler ConfigHandleFunc
-	// Interface Handlers
-	InterfaceCreate InterfaceHandleFunc
-	InterfaceChange InterfaceHandleFunc
-	InterfaceDelete InterfaceHandleFunc
-	// Network Instance Handlers
-	NetworkInstanceCreate NwInstHandleFunc
-	NetworkInstanceChange NwInstHandleFunc
-	NetworkInstanceDelete NwInstHandleFunc
-	// LLDP Neighbors Handlers
-	LLDPNeighborsCreate LLDPNeighborsHandleFunc
-	LLDPNeighborsChange LLDPNeighborsHandleFunc
-	LLDPNeighborsDelete LLDPNeighborsHandleFunc
-	// BFD Session Handlers
-	BFDSessionCreate BFDSessionHandleFunc
-	BFDSessionChange BFDSessionHandleFunc
-	BFDSessionDelete BFDSessionHandleFunc
-	// Route Handlers
-	RouteCreate RouteHandleFunc
-	RouteChange RouteHandleFunc
-	RouteDelete RouteHandleFunc
-}
+var gnmiUnixAddress = "unix:///opt/srlinux/var/run/sr_gnmi_server"
+var defaultRetryTimeout = 5 * time.Second
 
 type NotificationService struct {
 	Client   ndk.SdkNotificationServiceClient
@@ -67,11 +24,11 @@ type NotificationService struct {
 }
 
 type Agent struct {
-	Name       string
-	RetryTimer time.Duration
-	AppID      uint32
+	Name         string
+	retryTimeout time.Duration
+	AppID        uint32
 	// gRPC connection used to connect to the NDK server
-	GRPCConn *grpc.ClientConn
+	gRPCConn *grpc.ClientConn
 	// unix socket gnmi client
 	Target *target.Target
 	// SDK Manager Client
@@ -82,9 +39,9 @@ type Agent struct {
 		Handlers NotificationHandlers
 	}
 	//
-	TelemetryServiceClient    ndk.SdkMgrTelemetryServiceClient
-	RouteServiceClient        ndk.SdkMgrRouteServiceClient
-	MPLSRouteServiceClient    ndk.SdkMgrMplsRouteServiceClient
+	TelemetryServiceClient ndk.SdkMgrTelemetryServiceClient
+	RouteServiceClient     ndk.SdkMgrRouteServiceClient
+	// MPLSRouteServiceClient    ndk.SdkMgrMplsRouteServiceClient // deprecated
 	NextHopGroupServiceClient ndk.SdkMgrNextHopGroupServiceClient
 
 	m            *sync.RWMutex
@@ -95,11 +52,14 @@ type Agent struct {
 	LLDPNeighbor map[string]*ndk.LldpNeighborDataPb  // key is interfaceName, if there is a neighbor, there is a local interface
 	BFDSession   *BfdSession                         // TODO: ??
 	IPRoute      map[string]map[string]*ndk.RoutePb  // instanceName / ipAddr/prefixLen
+	NhGroup      map[uint64]*ndk.NextHopGroup        // instanceName / Name
 	// config transactions cache
 	configTrx []*ndk.ConfigNotification
+	// logger
+	logger *log.Logger
 }
 
-func NewAgent(ctx context.Context, name string, opts ...agentOption) (*Agent, error) {
+func New(ctx context.Context, name string, opts ...agentOption) (*Agent, error) {
 	a := &Agent{
 		m:            new(sync.RWMutex),
 		Config:       make(map[string]*ndk.ConfigData),
@@ -109,42 +69,61 @@ func NewAgent(ctx context.Context, name string, opts ...agentOption) (*Agent, er
 		LLDPNeighbor: make(map[string]*ndk.LldpNeighborDataPb),
 		BFDSession:   newBfdSession(),
 		IPRoute:      make(map[string]map[string]*ndk.RoutePb),
+		NhGroup:      make(map[uint64]*ndk.NextHopGroup),
 		configTrx:    make([]*ndk.ConfigNotification, 0),
 	}
+	a.Name = name
 	for _, opt := range opts {
 		opt(a)
 	}
-	a.Name = name
-	a.RetryTimer = retryTimeout
-	//
 	var err error
-	a.GRPCConn, err = grpc.Dial(grpcAddress, grpc.WithInsecure())
+	a.gRPCConn, err = grpc.Dial(grpcAddress, grpc.WithInsecure())
 	if err != nil {
-		log.Printf("grpc dial failed: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("grpc dial failed: %v", err)
 	}
-	a.SdkMgrServiceClient = ndk.NewSdkMgrServiceClient(a.GRPCConn)
+	a.SdkMgrServiceClient = ndk.NewSdkMgrServiceClient(a.gRPCConn)
 
-	nctx, cancel := context.WithTimeout(ctx, a.RetryTimer)
+	nctx, cancel := context.WithTimeout(ctx, a.retryTimeout)
 	defer cancel()
 	r, err := a.SdkMgrServiceClient.AgentRegister(nctx, &ndk.AgentRegistrationRequest{})
 	if err != nil {
-		return nil, fmt.Errorf("agent %s registration failed: %v", a.Name, err)
+		return nil, fmt.Errorf("agent %q registration failed: %v", a.Name, err)
 	}
 	a.AppID = r.GetAppId()
-	log.Printf("agent %s: registration status: %v", a.Name, r.GetStatus())
-	log.Printf("agent %s: registration appID: %v", a.Name, r.GetAppId())
+	a.logger.Printf("agent %s: registration status: %v", a.Name, r.GetStatus())
+	a.logger.Printf("agent %s: registration appID: %v", a.Name, r.GetAppId())
 	// create telemetry and notifications Clients
-	a.TelemetryServiceClient = ndk.NewSdkMgrTelemetryServiceClient(a.GRPCConn)
-	a.NotificationService.Client = ndk.NewSdkNotificationServiceClient(a.GRPCConn)
+	a.TelemetryServiceClient = ndk.NewSdkMgrTelemetryServiceClient(a.gRPCConn)
+	a.NotificationService.Client = ndk.NewSdkNotificationServiceClient(a.gRPCConn)
 	return a, nil
 }
 
 type agentOption func(*Agent)
 
+func WithLogger(l *log.Logger) agentOption {
+	return func(a *Agent) {
+		a.logger = l
+		if a.logger == nil {
+			a.logger = log.New(os.Stderr, "", log.LstdFlags)
+		}
+	}
+}
+
+func WithRetryTimer(r time.Duration) agentOption {
+	return func(a *Agent) {
+		a.retryTimeout = r
+		if a.retryTimeout <= 0 {
+			a.retryTimeout = defaultRetryTimeout
+		}
+	}
+}
+
 func (a *Agent) CreateGNMIClient(ctx context.Context, tc *types.TargetConfig) error {
+	if tc == nil {
+		tc = new(types.TargetConfig)
+	}
 	if tc.Address == "" {
-		tc.Address = "unix:///opt/srlinux/var/run/sr_gnmi_server"
+		tc.Address = gnmiUnixAddress
 	}
 	if tc.Insecure == nil && tc.SkipVerify == nil {
 		tc.Insecure = new(bool)
@@ -161,12 +140,12 @@ func (a *Agent) KeepAlive(ctx context.Context, period time.Duration) {
 		case <-newTicker.C:
 			keepAliveResponse, err := a.SdkMgrServiceClient.KeepAlive(ctx, &ndk.KeepAliveRequest{})
 			if err != nil {
-				log.Printf("agent %s: failed to send keep alive request: %v", a.Name, err)
+				a.logger.Printf("agent %q: failed to send keep alive request: %v", a.Name, err)
 				continue
 			}
-			log.Printf("agent %s: received keepAliveResponse, status=%v", a.Name, keepAliveResponse.Status)
+			a.logger.Printf("agent %q: received keepAliveResponse, status=%v", a.Name, keepAliveResponse.Status)
 		case <-ctx.Done():
-			log.Printf("agent %s: received %v, shutting down keepAlives", a.Name, ctx.Err())
+			a.logger.Printf("agent %q: received %v, shutting down keepAlives", a.Name, ctx.Err())
 			newTicker.Stop()
 			return
 		}

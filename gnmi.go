@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -137,7 +136,7 @@ func (a *Agent) GetSystemInfo(ctx context.Context) (*SystemInfo, error) {
 			}
 		}
 	}
-	log.Printf("system info: %+v", sysInfo)
+	a.logger.Printf("system info: %+v", sysInfo)
 	return sysInfo, nil
 }
 
@@ -183,7 +182,7 @@ func (a *Agent) GetMgmtAddresses(ctx context.Context) (*MgmtAddresses, error) {
 			}
 		}
 	}
-	log.Printf("mgmtIPs: %+v", mgmtIPs)
+	a.logger.Printf("mgmtIPs: %+v", mgmtIPs)
 	return mgmtIPs, nil
 }
 

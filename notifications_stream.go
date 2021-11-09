@@ -3,173 +3,169 @@ package agent
 import (
 	"context"
 	"io"
-	"log"
 	"net"
 	"time"
 
-	ndk "github.com/karimra/go-srl-ndk"
+	"github.com/nokia/srlinux-ndk-go/v21/ndk"
 )
 
+func (a *Agent) createNotificationSubscription(ctx context.Context) (uint64, uint64) {
+CREATESUB:
+	// get subscription and streamID
+	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
+		&ndk.NotificationRegisterRequest{
+			Op: ndk.NotificationRegisterRequest_Create,
+		})
+	if err != nil {
+		a.logger.Printf("agent %q could not register for notifications: %v", a.Name, err)
+		a.logger.Printf("agent %q retrying in %s", a.Name, a.retryTimeout)
+		time.Sleep(a.retryTimeout)
+		goto CREATESUB
+	}
+	if notificationResponse.GetStatus() != ndk.SdkMgrStatus_kSdkMgrSuccess {
+		a.logger.Printf("notification subscribe failed")
+		time.Sleep(a.retryTimeout)
+		goto CREATESUB
+	}
+	return notificationResponse.GetSubId(), notificationResponse.GetStreamId()
+}
+
+func (a *Agent) startNotificationStream(ctx context.Context, req *ndk.NotificationRegisterRequest, subID uint64, streamChan chan *ndk.NotificationStreamResponse) {
+	a.logger.Printf("starting stream with req=%+v", req)
+	defer close(streamChan)
+	defer func() {
+		a.logger.Printf("agent %s deleting subscription %d", a.Name, subID)
+		a.SdkMgrServiceClient.NotificationRegister(context.TODO(), &ndk.NotificationRegisterRequest{
+			Op:    ndk.NotificationRegisterRequest_DeleteSubscription,
+			SubId: subID,
+		})
+	}()
+GETSTREAM:
+	registerResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx, req)
+	if err != nil {
+		a.logger.Printf("agent %s failed registering to notification with req=%+v: %v", a.Name, req, err)
+		a.logger.Printf("agent %s retrying in %s", a.Name, a.retryTimeout)
+		time.Sleep(a.retryTimeout)
+		goto GETSTREAM
+	}
+	if registerResponse.GetStatus() == ndk.SdkMgrStatus_kSdkMgrFailed {
+		a.logger.Printf("failed to get stream with req: %v", req)
+		a.logger.Printf("agent %s retrying in %s", a.Name, a.retryTimeout)
+		time.Sleep(a.retryTimeout)
+		goto GETSTREAM
+	}
+	stream, err := a.NotificationService.Client.NotificationStream(ctx,
+		&ndk.NotificationStreamRequest{
+			StreamId: req.GetStreamId(),
+		})
+	if err != nil {
+		a.logger.Printf("agent %s failed creating stream client with req=%+v: %v", a.Name, req, err)
+		a.logger.Printf("agent %s retrying in %s", a.Name, a.retryTimeout)
+		time.Sleep(a.retryTimeout)
+		goto GETSTREAM
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			ev, err := stream.Recv()
+			if err == io.EOF {
+				a.logger.Printf("agent %s received EOF for stream %v", a.Name, req.GetSubscriptionTypes())
+				a.logger.Printf("agent %s retrying in %s", a.Name, a.retryTimeout)
+				time.Sleep(a.retryTimeout)
+				goto GETSTREAM
+			}
+			if err != nil {
+				a.logger.Printf("agent %s failed to receive notification: %v", a.Name, err)
+				continue
+			}
+			streamChan <- ev
+		}
+	}
+}
+
 func (a *Agent) StartConfigNotificationStream(ctx context.Context) chan *ndk.NotificationStreamResponse {
-CREATESUB:
-	// get subscription and streamID
-	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
-		&ndk.NotificationRegisterRequest{
-			Op: ndk.NotificationRegisterRequest_Create,
-		})
-	if err != nil {
-		log.Printf("agent %s could not register for config notifications: %v", a.Name, err)
-		log.Printf("agent %s retrying in %s", a.Name, a.RetryTimer)
-		time.Sleep(a.RetryTimer)
-		goto CREATESUB
-	}
-	log.Printf("config notification registration status : %s streamID %d", notificationResponse.Status, notificationResponse.GetStreamId())
-
+	subID, streamID := a.createNotificationSubscription(ctx)
+	a.logger.Printf("Config notification registration: subscriptionID=%d, streamID=%d", subID, streamID)
 	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
 		Op:       ndk.NotificationRegisterRequest_AddSubscription,
-		StreamId: notificationResponse.GetStreamId(),
+		StreamId: streamID,
 		SubscriptionTypes: &ndk.NotificationRegisterRequest_Config{ // config
-			Config: &ndk.ConfigSubscriptionRequest{},
+			Config: new(ndk.ConfigSubscriptionRequest),
 		},
 	}
-	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
+	streamChan := make(chan *ndk.NotificationStreamResponse)
+	go a.startNotificationStream(ctx, notificationRegisterRequest, subID, streamChan)
+	return streamChan
 }
-func (a *Agent) StartNwInstNotificationStream(ctx context.Context) chan *ndk.NotificationStreamResponse {
-CREATESUB:
-	// get subscription and streamID
-	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
-		&ndk.NotificationRegisterRequest{
-			Op: ndk.NotificationRegisterRequest_Create,
-		})
-	if err != nil {
-		log.Printf("agent %s could not register for NwInst notifications: %v", a.Name, err)
-		log.Printf("agent %s retrying in %s", a.Name, a.RetryTimer)
-		time.Sleep(a.RetryTimer)
-		goto CREATESUB
-	}
-	log.Printf("NwInst notification registration status: %s, subscriptionID=%d, streamID=%d",
-		notificationResponse.Status,
-		notificationResponse.GetSubId(),
-		notificationResponse.GetStreamId())
 
+func (a *Agent) StartNwInstNotificationStream(ctx context.Context) chan *ndk.NotificationStreamResponse {
+	subID, streamID := a.createNotificationSubscription(ctx)
+	a.logger.Printf("NwInst notification registration: subscriptionID=%d, streamID=%d", subID, streamID)
 	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
 		Op:       ndk.NotificationRegisterRequest_AddSubscription,
-		StreamId: notificationResponse.GetStreamId(),
+		StreamId: streamID,
 		SubscriptionTypes: &ndk.NotificationRegisterRequest_NwInst{ // NwInst
-			NwInst: &ndk.NetworkInstanceSubscriptionRequest{},
+			NwInst: new(ndk.NetworkInstanceSubscriptionRequest),
 		},
 	}
-	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
+	streamChan := make(chan *ndk.NotificationStreamResponse)
+	go a.startNotificationStream(ctx, notificationRegisterRequest, subID, streamChan)
+	return streamChan
 }
+
 func (a *Agent) StartInterfaceNotificationStream(ctx context.Context, ifName string) chan *ndk.NotificationStreamResponse {
-CREATESUB:
-	// get subscription and streamID
-	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
-		&ndk.NotificationRegisterRequest{
-			Op: ndk.NotificationRegisterRequest_Create,
-		})
-	if err != nil {
-		log.Printf("agent %s could not register for Intf notifications: %v", a.Name, err)
-		log.Printf("agent %s retrying in %s", a.Name, a.RetryTimer)
-		time.Sleep(a.RetryTimer)
-		goto CREATESUB
-	}
-	log.Printf("interface notification registration status: %s, subscriptionID=%d, streamID=%d",
-		notificationResponse.Status, notificationResponse.GetSubId(), notificationResponse.GetStreamId())
-	if notificationResponse.Status == ndk.SdkMgrStatus_kSdkMgrFailed {
-		log.Printf("interface notification subscribe failed")
-		time.Sleep(a.RetryTimer)
-		goto CREATESUB
-	}
-
-	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
-		Op:                ndk.NotificationRegisterRequest_AddSubscription,
-		StreamId:          notificationResponse.GetStreamId(),
-		SubscriptionTypes: &ndk.NotificationRegisterRequest_Intf{},
-	}
+	subID, streamID := a.createNotificationSubscription(ctx)
+	a.logger.Printf("Intf notification registration: subscriptionID=%d, streamID=%d", subID, streamID)
+	subType := new(ndk.NotificationRegisterRequest_Intf)
 	if ifName != "" {
-		key := &ndk.InterfaceKey{
-			IfName: ifName,
-		}
-		notificationRegisterRequest.SubscriptionTypes = &ndk.NotificationRegisterRequest_Intf{
-			Intf: &ndk.InterfaceSubscriptionRequest{
-				Key: key,
+		subType.Intf = &ndk.InterfaceSubscriptionRequest{
+			Key: &ndk.InterfaceKey{
+				IfName: ifName,
 			},
 		}
 	}
-	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
-}
-func (a *Agent) StartLLDPNeighNotificationStream(ctx context.Context, ifName, chassisType, chassisID string) chan *ndk.NotificationStreamResponse {
-CREATESUB:
-	// get subscription and streamID
-	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
-		&ndk.NotificationRegisterRequest{
-			Op: ndk.NotificationRegisterRequest_Create,
-		})
-	if err != nil {
-		log.Printf("agent %s could not register for Intf notifications: %v", a.Name, err)
-		log.Printf("agent %s retrying in %s", a.Name, a.RetryTimer)
-		time.Sleep(a.RetryTimer)
-		goto CREATESUB
-	}
-	log.Printf("LLDPNeighbor notification registration status: %s, subscriptionID=%d, streamID=%d",
-		notificationResponse.Status, notificationResponse.GetSubId(), notificationResponse.GetStreamId())
-	if notificationResponse.Status == ndk.SdkMgrStatus_kSdkMgrFailed {
-		log.Printf("LLDPNeighbor notification subscribe failed")
-		time.Sleep(a.RetryTimer)
-		goto CREATESUB
-	}
 	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
 		Op:                ndk.NotificationRegisterRequest_AddSubscription,
-		StreamId:          notificationResponse.GetStreamId(),
-		SubscriptionTypes: &ndk.NotificationRegisterRequest_LldpNeighbor{},
+		StreamId:          streamID,
+		SubscriptionTypes: subType,
 	}
+	streamChan := make(chan *ndk.NotificationStreamResponse)
+	go a.startNotificationStream(ctx, notificationRegisterRequest, subID, streamChan)
+	return streamChan
+}
 
+func (a *Agent) StartLLDPNeighNotificationStream(ctx context.Context, ifName, chassisType, chassisID string) chan *ndk.NotificationStreamResponse {
+	subID, streamID := a.createNotificationSubscription(ctx)
+	a.logger.Printf("LLDPNeighbor notification registration: subscriptionID=%d, streamID=%d", subID, streamID)
+	subType := new(ndk.NotificationRegisterRequest_LldpNeighbor)
 	if ifName != "" || chassisID != "" || chassisType != "" {
-		key := &ndk.LldpNeighborKeyPb{
-			InterfaceName: ifName,
-			// ChassisId:     chassisID,
-			// ChassisType: ndk.LldpNeighborKeyPb_CHASSIS_COMPONENT,
-		}
-		notificationRegisterRequest = &ndk.NotificationRegisterRequest{
-			Op:       ndk.NotificationRegisterRequest_AddSubscription,
-			StreamId: notificationResponse.GetStreamId(),
-			SubscriptionTypes: &ndk.NotificationRegisterRequest_LldpNeighbor{ // LLDPNeigh
-				LldpNeighbor: &ndk.LldpNeighborSubscriptionRequest{
-					Key: key,
-				},
+		subType.LldpNeighbor = &ndk.LldpNeighborSubscriptionRequest{
+			Key: &ndk.LldpNeighborKeyPb{
+				InterfaceName: ifName,
+				ChassisId:     chassisID,
 			},
 		}
-	}
-	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
-}
-func (a *Agent) StartBFDSessionNotificationStream(ctx context.Context, srcIP, dstIP net.IP, instance *uint32) chan *ndk.NotificationStreamResponse {
-CREATESUB:
-	// get subscription and streamID
-	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
-		&ndk.NotificationRegisterRequest{
-			Op: ndk.NotificationRegisterRequest_Create,
-		})
-	if err != nil {
-		log.Printf("agent %s could not register for Intf notifications: %v", a.Name, err)
-		log.Printf("agent %s retrying in %s", a.Name, a.RetryTimer)
-		time.Sleep(a.RetryTimer)
-		goto CREATESUB
-	}
-	log.Printf("BFDSession notification registration status: %s, subscriptionID=%d, streamID=%d",
-		notificationResponse.Status, notificationResponse.GetSubId(), notificationResponse.GetStreamId())
-	if notificationResponse.Status == ndk.SdkMgrStatus_kSdkMgrFailed {
-		log.Printf("BFDSession notification subscribe failed")
-		time.Sleep(a.RetryTimer)
-		goto CREATESUB
-	}
-	bfdSession := &ndk.BfdSessionSubscriptionRequest{
-		Key: &ndk.BfdmgrGeneralSessionKeyPb{},
+		if v, ok := ndk.LldpNeighborKeyPb_ChassisIdType_value[chassisType]; ok {
+			subType.LldpNeighbor.Key.ChassisType = ndk.LldpNeighborKeyPb_ChassisIdType(v)
+		}
 	}
 	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
 		Op:                ndk.NotificationRegisterRequest_AddSubscription,
-		StreamId:          notificationResponse.GetStreamId(),
-		SubscriptionTypes: &ndk.NotificationRegisterRequest_BfdSession{},
+		StreamId:          streamID,
+		SubscriptionTypes: subType,
+	}
+	streamChan := make(chan *ndk.NotificationStreamResponse)
+	go a.startNotificationStream(ctx, notificationRegisterRequest, subID, streamChan)
+	return streamChan
+}
+
+func (a *Agent) StartBFDSessionNotificationStream(ctx context.Context, srcIP, dstIP net.IP, instance *uint32) chan *ndk.NotificationStreamResponse {
+	subID, streamID := a.createNotificationSubscription(ctx)
+	a.logger.Printf("BFDSession notification registration: subscriptionID=%d, streamID=%d", subID, streamID)
+	bfdSession := &ndk.BfdSessionSubscriptionRequest{
+		Key: new(ndk.BfdmgrGeneralSessionKeyPb),
 	}
 	if srcIP != nil {
 		bfdSession.Key.SrcIpAddr = &ndk.IpAddressPb{Addr: srcIP}
@@ -180,47 +176,24 @@ CREATESUB:
 	if instance != nil {
 		bfdSession.Key.InstanceId = *instance
 	}
+	subType := new(ndk.NotificationRegisterRequest_BfdSession)
 	if srcIP != nil || dstIP != nil || instance != nil {
-		notificationRegisterRequest = &ndk.NotificationRegisterRequest{
-			Op:       ndk.NotificationRegisterRequest_AddSubscription,
-			StreamId: notificationResponse.GetStreamId(),
-			SubscriptionTypes: &ndk.NotificationRegisterRequest_BfdSession{ // BFDSession
-				BfdSession: bfdSession,
-			},
-		}
+		subType.BfdSession = bfdSession
 	}
-	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
-}
-func (a *Agent) StartRouteNotificationStream(ctx context.Context, netInstance string, ipAddr net.IP, prefixLen uint32) chan *ndk.NotificationStreamResponse {
-CREATESUB:
-	// get subscription and streamID
-	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
-		&ndk.NotificationRegisterRequest{
-			Op: ndk.NotificationRegisterRequest_Create,
-		})
-	if err != nil {
-		log.Printf("agent %s could not register for Intf notifications: %v", a.Name, err)
-		log.Printf("agent %s retrying in %s", a.Name, a.RetryTimer)
-		time.Sleep(a.RetryTimer)
-		goto CREATESUB
-	}
-	log.Printf("Route notification registration status: %s, subscriptionID=%d, streamID=%d",
-		notificationResponse.Status, notificationResponse.GetSubId(), notificationResponse.GetStreamId())
-	if notificationResponse.Status == ndk.SdkMgrStatus_kSdkMgrFailed {
-		log.Printf("Route notification subscribe failed")
-		time.Sleep(a.RetryTimer)
-		goto CREATESUB
-	}
-
 	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
-		Op:       ndk.NotificationRegisterRequest_AddSubscription,
-		StreamId: notificationResponse.GetStreamId(),
-		SubscriptionTypes: &ndk.NotificationRegisterRequest_Route{ // route
-			Route: &ndk.IpRouteSubscriptionRequest{
-				//Key: key,
-			},
-		},
+		Op:                ndk.NotificationRegisterRequest_AddSubscription,
+		StreamId:          streamID,
+		SubscriptionTypes: subType,
 	}
+	streamChan := make(chan *ndk.NotificationStreamResponse)
+	go a.startNotificationStream(ctx, notificationRegisterRequest, subID, streamChan)
+	return streamChan
+}
+
+func (a *Agent) StartRouteNotificationStream(ctx context.Context, netInstance string, ipAddr net.IP, prefixLen uint32) chan *ndk.NotificationStreamResponse {
+	subID, streamID := a.createNotificationSubscription(ctx)
+	a.logger.Printf("Route notification registration: subscriptionID=%d, streamID=%d", subID, streamID)
+	subType := new(ndk.NotificationRegisterRequest_Route)
 	key := new(ndk.RouteKeyPb)
 	if netInstance != "" {
 		key.NetInstName = netInstance
@@ -232,19 +205,40 @@ CREATESUB:
 		}
 	}
 	if netInstance != "" || ipAddr != nil {
-		notificationRegisterRequest = &ndk.NotificationRegisterRequest{
-			Op:       ndk.NotificationRegisterRequest_AddSubscription,
-			StreamId: notificationResponse.GetStreamId(),
-			SubscriptionTypes: &ndk.NotificationRegisterRequest_Route{ // route
-				Route: &ndk.IpRouteSubscriptionRequest{
-					Key: key,
-				},
-			},
+		subType.Route = &ndk.IpRouteSubscriptionRequest{
+			Key: key,
 		}
 	}
-	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
+	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
+		Op:                ndk.NotificationRegisterRequest_AddSubscription,
+		StreamId:          streamID,
+		SubscriptionTypes: subType,
+	}
+	streamChan := make(chan *ndk.NotificationStreamResponse)
+	go a.startNotificationStream(ctx, notificationRegisterRequest, subID, streamChan)
+	return streamChan
 }
+
 func (a *Agent) StartAppIdNotificationStream(ctx context.Context, id *uint32) chan *ndk.NotificationStreamResponse {
+	subID, streamID := a.createNotificationSubscription(ctx)
+	a.logger.Printf("AppId notification registration: subscriptionID=%d, streamID=%d", subID, streamID)
+	subType := new(ndk.NotificationRegisterRequest_Appid)
+	if id != nil {
+		subType.Appid = &ndk.AppIdentSubscriptionRequest{
+			Key: &ndk.AppIdentKey{Id: *id},
+		}
+	}
+	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
+		Op:                ndk.NotificationRegisterRequest_AddSubscription,
+		StreamId:          streamID,
+		SubscriptionTypes: subType,
+	}
+	streamChan := make(chan *ndk.NotificationStreamResponse)
+	go a.startNotificationStream(ctx, notificationRegisterRequest, subID, streamChan)
+	return streamChan
+}
+
+func (a *Agent) StartNhGroupNotificationStream(ctx context.Context, instanceName, name string) chan *ndk.NotificationStreamResponse {
 CREATESUB:
 	// get subscription and streamID
 	notificationResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx,
@@ -252,90 +246,34 @@ CREATESUB:
 			Op: ndk.NotificationRegisterRequest_Create,
 		})
 	if err != nil {
-		log.Printf("agent %s could not register for Intf notifications: %v", a.Name, err)
-		log.Printf("agent %s retrying in %s", a.Name, a.RetryTimer)
-		time.Sleep(a.RetryTimer)
+		a.logger.Printf("agent %s could not register for NHGroup notifications: %v", a.Name, err)
+		a.logger.Printf("agent %s retrying in %s", a.Name, a.retryTimeout)
+		time.Sleep(a.retryTimeout)
 		goto CREATESUB
 	}
-	log.Printf("AppId notification registration status: %s, subscriptionID=%d, streamID=%d",
-		notificationResponse.Status, notificationResponse.GetSubId(), notificationResponse.GetStreamId())
-	if notificationResponse.Status == ndk.SdkMgrStatus_kSdkMgrFailed {
-		log.Printf("AppId notification subscribe failed")
-		time.Sleep(a.RetryTimer)
+	a.logger.Printf("NHGroup notification registration status: %s, subscriptionID=%d, streamID=%d",
+		notificationResponse.GetStatus(), notificationResponse.GetSubId(), notificationResponse.GetStreamId())
+	if notificationResponse.GetStatus() != ndk.SdkMgrStatus_kSdkMgrSuccess {
+		a.logger.Printf("NHGroup notification subscribe failed")
+		time.Sleep(a.retryTimeout)
 		goto CREATESUB
+	}
+
+	subType := new(ndk.NotificationRegisterRequest_Nhg)
+	if name != "" && instanceName != "" {
+		subType.Nhg = &ndk.NextHopGroupSubscriptionRequest{
+			Key: &ndk.NextHopGroupKey{
+				Name:                name,
+				NetworkInstanceName: instanceName,
+			},
+		}
 	}
 	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
 		Op:                ndk.NotificationRegisterRequest_AddSubscription,
 		StreamId:          notificationResponse.GetStreamId(),
-		SubscriptionTypes: &ndk.NotificationRegisterRequest_Appid{},
+		SubscriptionTypes: subType,
 	}
-	if id != nil {
-		notificationRegisterRequest = &ndk.NotificationRegisterRequest{
-			Op:       ndk.NotificationRegisterRequest_AddSubscription,
-			StreamId: notificationResponse.GetStreamId(),
-			SubscriptionTypes: &ndk.NotificationRegisterRequest_Appid{ // AppId
-				Appid: &ndk.AppIdentSubscriptionRequest{
-					Key: &ndk.AppIdentKey{Id: *id},
-				},
-			},
-		}
-	}
-	return a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId())
-}
-func (a *Agent) startNotificationStream(ctx context.Context, req *ndk.NotificationRegisterRequest, subID uint64) chan *ndk.NotificationStreamResponse {
 	streamChan := make(chan *ndk.NotificationStreamResponse)
-	log.Printf("starting stream with req=%+v", req)
-	go func() {
-		defer close(streamChan)
-		defer func() {
-			log.Printf("agent %s deleting subscription %d", a.Name, subID)
-			a.SdkMgrServiceClient.NotificationRegister(context.TODO(), &ndk.NotificationRegisterRequest{
-				Op:    ndk.NotificationRegisterRequest_DeleteSubscription,
-				SubId: subID,
-			})
-		}()
-	GETSTREAM:
-		registerResponse, err := a.SdkMgrServiceClient.NotificationRegister(ctx, req)
-		if err != nil {
-			log.Printf("agent %s failed registering to notification with req=%+v: %v", a.Name, req, err)
-			log.Printf("agent %s retrying in %s", a.Name, a.RetryTimer)
-			time.Sleep(a.RetryTimer)
-			goto GETSTREAM
-		}
-		if registerResponse.GetStatus() == ndk.SdkMgrStatus_kSdkMgrFailed {
-			log.Printf("failed to get stream with req: %v", req)
-			log.Printf("agent %s retrying in %s", a.Name, a.RetryTimer)
-			time.Sleep(a.RetryTimer)
-			goto GETSTREAM
-		}
-		stream, err := a.NotificationService.Client.NotificationStream(ctx,
-			&ndk.NotificationStreamRequest{
-				StreamId: req.GetStreamId(),
-			})
-		if err != nil {
-			log.Printf("agent %s failed creating stream client with req=%+v: %v", a.Name, req, err)
-			log.Printf("agent %s retrying in %s", a.Name, a.RetryTimer)
-			time.Sleep(a.RetryTimer)
-			goto GETSTREAM
-		}
-		for {
-			ev, err := stream.Recv()
-			if err == io.EOF {
-				log.Printf("agent %s received EOF for stream %v", a.Name, req.GetSubscriptionTypes())
-				log.Printf("agent %s retrying in %s", a.Name, a.RetryTimer)
-				time.Sleep(a.RetryTimer)
-				goto GETSTREAM
-			}
-			if err != nil {
-				log.Printf("agent %s failed to receive notification: %v", a.Name, err)
-				continue
-			}
-			select {
-			case <-ctx.Done():
-				return
-			case streamChan <- ev:
-			}
-		}
-	}()
+	go a.startNotificationStream(ctx, notificationRegisterRequest, notificationResponse.GetSubId(), streamChan)
 	return streamChan
 }
