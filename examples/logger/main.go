@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/karimra/srl-ndk-demo/agent"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/encoding/prototext"
+
+	agent "github.com/karimra/srl-ndk-demo"
 )
 
 const retryInterval = 5 * time.Second
@@ -20,7 +21,7 @@ func main() {
 	defer cancel()
 	ctx = metadata.AppendToOutgoingContext(ctx, "agent_name", "ndk-demo")
 CRAGENT:
-	app, err := agent.NewAgent(ctx, "ndk-demo")
+	app, err := agent.New(ctx, "ndk-demo")
 	if err != nil {
 		log.Printf("failed to create agent: %v", err)
 		log.Printf("retrying in %s", retryInterval)
