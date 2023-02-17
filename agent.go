@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/karimra/gnmic/target"
-	"github.com/karimra/gnmic/types"
 	"github.com/nokia/srlinux-ndk-go/v21/ndk"
+	"github.com/openconfig/gnmic/target"
+	"github.com/openconfig/gnmic/types"
 	"google.golang.org/grpc"
 )
 

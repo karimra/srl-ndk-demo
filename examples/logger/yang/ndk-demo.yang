@@ -36,6 +36,6 @@ module ndk-demo {
             }
         }
     }
-    
+
     uses ndk-demo-top;
 }
