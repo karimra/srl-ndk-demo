@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/nokia/srlinux-ndk-go/v21/ndk"
+	"github.com/nokia/srlinux-ndk-go/ndk"
 )
 
 func (a *Agent) createNotificationSubscription(ctx context.Context) (uint64, uint64) {
@@ -161,29 +161,40 @@ func (a *Agent) StartLLDPNeighNotificationStream(ctx context.Context, ifName, ch
 	return streamChan
 }
 
-func (a *Agent) StartBFDSessionNotificationStream(ctx context.Context, srcIP, dstIP net.IP, instance *uint32) chan *ndk.NotificationStreamResponse {
+func (a *Agent) StartBFDSessionNotificationStream(ctx context.Context, key interface{}) chan *ndk.NotificationStreamResponse {
 	subID, streamID := a.createNotificationSubscription(ctx)
 	a.logger.Printf("BFDSession notification registration: subscriptionID=%d, streamID=%d", subID, streamID)
 	bfdSession := &ndk.BfdSessionSubscriptionRequest{
 		Key: new(ndk.BfdmgrGeneralSessionKeyPb),
 	}
-	if srcIP != nil {
-		bfdSession.Key.SrcIpAddr = &ndk.IpAddressPb{Addr: srcIP}
+	switch key := key.(type) {
+	case *ndk.BfdmgrGeneralSessionKeyPb_P2P:
+		bfdSession.Key.Key = key
+		bfdSession.Key.Type = ndk.BfdmgrSessionType_SESSION_TYPE_P2P
+	case *ndk.BfdmgrGeneralSessionKeyPb_Microbfd:
+		bfdSession.Key.Key = key
+		bfdSession.Key.Type = ndk.BfdmgrSessionType_SESSION_TYPE_MICROBFD
+	case *ndk.BfdmgrGeneralSessionKeyPb_Sbfdecho:
+		bfdSession.Key.Key = key
+		bfdSession.Key.Type = ndk.BfdmgrSessionType_SESSION_TYPE_SBFD_ECHO
+	default:
+		bfdSession.Key.Type = ndk.BfdmgrSessionType_SESSION_TYPE_P2P
 	}
-	if dstIP != nil {
-		bfdSession.Key.DstIpAddr = &ndk.IpAddressPb{Addr: dstIP}
+	bfdSession.Key.Key = &ndk.BfdmgrGeneralSessionKeyPb_Microbfd{
+		Microbfd: &ndk.BfdmgrGeneralSessionKeyPb_MicrobfdKey{},
 	}
-	if instance != nil {
-		bfdSession.Key.InstanceId = *instance
+	bfdSession.Key.Key = &ndk.BfdmgrGeneralSessionKeyPb_P2P{
+		P2P: &ndk.BfdmgrGeneralSessionKeyPb_P2PKey{},
 	}
-	subType := new(ndk.NotificationRegisterRequest_BfdSession)
-	if srcIP != nil || dstIP != nil || instance != nil {
-		subType.BfdSession = bfdSession
+	bfdSession.Key.Key = &ndk.BfdmgrGeneralSessionKeyPb_Sbfdecho{
+		Sbfdecho: &ndk.BfdmgrGeneralSessionKeyPb_SbfdechoKey{},
 	}
 	notificationRegisterRequest := &ndk.NotificationRegisterRequest{
-		Op:                ndk.NotificationRegisterRequest_AddSubscription,
-		StreamId:          streamID,
-		SubscriptionTypes: subType,
+		Op:       ndk.NotificationRegisterRequest_AddSubscription,
+		StreamId: streamID,
+		SubscriptionTypes: &ndk.NotificationRegisterRequest_BfdSession{
+			BfdSession: bfdSession,
+		},
 	}
 	streamChan := make(chan *ndk.NotificationStreamResponse)
 	go a.startNotificationStream(ctx, notificationRegisterRequest, subID, streamChan)

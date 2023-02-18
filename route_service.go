@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nokia/srlinux-ndk-go/v21/ndk"
+	"github.com/nokia/srlinux-ndk-go/ndk"
 )
 
 func (a *Agent) RouteAddOrUpdate(ctx context.Context, routeInfo ...*ndk.RouteInfo) error {

@@ -3,10 +3,11 @@ ndk-demo:
     path: /opt/srlinux/usr/bin/
     launch-command: ./ndk-demo
     search-command: ./ndk-demo
-    wait-for-config: Yes
+    #wait-for-config: No
+    config-delivery-format: json
     failure-threshold: 10
     yang-modules:
-        names: 
+        names:
             - "ndk-demo"
         source-directories:
             - "/opt/ndk-demo/yang/"

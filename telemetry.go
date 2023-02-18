@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nokia/srlinux-ndk-go/v21/ndk"
+	"github.com/nokia/srlinux-ndk-go/ndk"
 	"google.golang.org/protobuf/encoding/prototext"
 )
 

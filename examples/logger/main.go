@@ -21,7 +21,7 @@ func main() {
 	defer cancel()
 	ctx = metadata.AppendToOutgoingContext(ctx, "agent_name", "ndk-demo")
 CRAGENT:
-	app, err := agent.New(ctx, "ndk-demo")
+	app, err := agent.New(ctx, "ndk-demo", agent.WithRetryTimer(10*time.Second), agent.WithLogger(nil))
 	if err != nil {
 		log.Printf("failed to create agent: %v", err)
 		log.Printf("retrying in %s", retryInterval)
@@ -84,7 +84,7 @@ CRAGENT:
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		appIdChan := app.StartBFDSessionNotificationStream(ctx, nil, nil, nil)
+		appIdChan := app.StartBFDSessionNotificationStream(ctx, nil)
 		for {
 			select {
 			case event := <-appIdChan:

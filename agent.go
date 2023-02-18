@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nokia/srlinux-ndk-go/v21/ndk"
+	"github.com/nokia/srlinux-ndk-go/ndk"
 	"github.com/openconfig/gnmic/target"
 	"github.com/openconfig/gnmic/types"
 	"google.golang.org/grpc"
@@ -61,6 +61,9 @@ type Agent struct {
 
 func New(ctx context.Context, name string, opts ...agentOption) (*Agent, error) {
 	a := &Agent{
+		retryTimeout: defaultRetryTimeout,
+		logger:       log.New(os.Stderr, "", log.LstdFlags),
+		//
 		m:            new(sync.RWMutex),
 		Config:       make(map[string]*ndk.ConfigData),
 		NwInst:       make(map[string]*ndk.NetworkInstanceData),

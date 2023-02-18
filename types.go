@@ -3,7 +3,7 @@ package agent
 import (
 	"sync"
 
-	ndk "github.com/nokia/srlinux-ndk-go/v21/ndk"
+	ndk "github.com/nokia/srlinux-ndk-go/ndk"
 )
 
 type BfdSession struct {

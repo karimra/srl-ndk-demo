@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/nokia/srlinux-ndk-go/v21/ndk"
+	"github.com/nokia/srlinux-ndk-go/ndk"
 )
 
 type HandleFunc func(context.Context, *ndk.Notification) error
@@ -136,7 +136,7 @@ func (a *Agent) handleAppId(ctx context.Context, n *ndk.AppIdentNotification) {
 	case ndk.SdkMgrOperation_Create:
 		a.AppIDs[n.GetKey().GetId()] = n.GetData()
 		a.NotificationService.Handlers.AppIdCreate(ctx, n)
-	case ndk.SdkMgrOperation_Change:
+	case ndk.SdkMgrOperation_Update:
 		a.AppIDs[n.GetKey().GetId()] = n.GetData()
 		a.NotificationService.Handlers.AppIdChange(ctx, n)
 	case ndk.SdkMgrOperation_Delete:
@@ -181,7 +181,7 @@ func (a *Agent) handleIntf(ctx context.Context, n *ndk.InterfaceNotification) er
 	case ndk.SdkMgrOperation_Create:
 		a.Intf[n.GetKey().GetIfName()] = n.GetData()
 		return a.NotificationService.Handlers.InterfaceCreate(ctx, n)
-	case ndk.SdkMgrOperation_Change:
+	case ndk.SdkMgrOperation_Update:
 		a.Intf[n.GetKey().GetIfName()] = n.GetData()
 		return a.NotificationService.Handlers.InterfaceChange(ctx, n)
 	case ndk.SdkMgrOperation_Delete:
@@ -211,7 +211,7 @@ func (a *Agent) handleNwInst(ctx context.Context, n *ndk.NetworkInstanceNotifica
 	case ndk.SdkMgrOperation_Create:
 		a.NwInst[n.GetKey().GetInstName()] = n.GetData()
 		return a.NotificationService.Handlers.NetworkInstanceCreate(ctx, n)
-	case ndk.SdkMgrOperation_Change:
+	case ndk.SdkMgrOperation_Update:
 		a.NwInst[n.GetKey().GetInstName()] = n.GetData()
 		return a.NotificationService.Handlers.NetworkInstanceChange(ctx, n)
 	case ndk.SdkMgrOperation_Delete:
@@ -242,7 +242,7 @@ func (a *Agent) handleLldpNeighbor(ctx context.Context, n *ndk.LldpNeighborNotif
 		return a.NotificationService.Handlers.LLDPNeighborsCreate(ctx, n)
 	case ndk.SdkMgrOperation_Delete:
 		return a.NotificationService.Handlers.LLDPNeighborsChange(ctx, n)
-	case ndk.SdkMgrOperation_Change:
+	case ndk.SdkMgrOperation_Update:
 		return a.NotificationService.Handlers.LLDPNeighborsDelete(ctx, n)
 	}
 	return nil
@@ -269,7 +269,7 @@ func (a *Agent) handleBfdSession(ctx context.Context, n *ndk.BfdSessionNotificat
 		return a.NotificationService.Handlers.BFDSessionCreate(ctx, n)
 	case ndk.SdkMgrOperation_Delete:
 		return a.NotificationService.Handlers.BFDSessionChange(ctx, n)
-	case ndk.SdkMgrOperation_Change:
+	case ndk.SdkMgrOperation_Update:
 		return a.NotificationService.Handlers.BFDSessionDelete(ctx, n)
 	}
 	return nil
@@ -298,7 +298,7 @@ func (a *Agent) handleRoute(ctx context.Context, n *ndk.IpRouteNotification) err
 		ipPrefix := n.GetKey().GetIpPrefix().GetPrefixLength()
 		a.IPRoute[netIns][fmt.Sprintf("%s/%d", ipAddr, ipPrefix)] = n.GetData()
 		return a.NotificationService.Handlers.RouteCreate(ctx, n)
-	case ndk.SdkMgrOperation_Change:
+	case ndk.SdkMgrOperation_Update:
 		netIns := n.GetKey().GetNetInstName()
 		ipAddr := n.GetKey().GetIpPrefix().GetIpAddr()
 		ipPrefix := n.GetKey().GetIpPrefix().GetPrefixLength()
@@ -334,7 +334,7 @@ func (a *Agent) handleNextHopGroup(ctx context.Context, n *ndk.NextHopGroupNotif
 	case ndk.SdkMgrOperation_Create:
 		a.NhGroup[n.GetKey()] = n.GetData()
 		return a.NotificationService.Handlers.NextHopGroupCreate(ctx, n)
-	case ndk.SdkMgrOperation_Change:
+	case ndk.SdkMgrOperation_Update:
 		a.NhGroup[n.GetKey()] = n.GetData()
 		return a.NotificationService.Handlers.NextHopGroupChange(ctx, n)
 	case ndk.SdkMgrOperation_Delete:

@@ -33,6 +33,10 @@ module ndk-demo {
                         length "1..8";
                     }
                 }
+                leaf-list lf {
+                    type string;
+                    max-elements 10;
+                }
             }
         }
     }
