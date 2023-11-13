@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/nokia/srlinux-ndk-go/ndk"
-	"github.com/openconfig/gnmic/target"
-	"github.com/openconfig/gnmic/types"
+	"github.com/openconfig/gnmic/pkg/target"
+	"github.com/openconfig/gnmic/pkg/types"
 	"google.golang.org/grpc"
 )
 

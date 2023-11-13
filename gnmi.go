@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/openconfig/gnmi/proto/gnmi"
-	"github.com/openconfig/gnmic/utils"
+	"github.com/openconfig/gnmic/pkg/path"
 )
 
 type SystemInfo struct {
@@ -112,26 +112,26 @@ func (a *Agent) GetSystemInfo(ctx context.Context) (*SystemInfo, error) {
 	sysInfo := new(SystemInfo)
 	for _, n := range rsp.GetNotification() {
 		for _, u := range n.GetUpdate() {
-			path := utils.GnmiPathToXPath(u.GetPath(), true)
-			if strings.Contains(path, "system/name") {
+			p := path.GnmiPathToXPath(u.GetPath(), true)
+			if strings.Contains(p, "system/name") {
 				sysInfo.Name = u.GetVal().GetStringVal()
 			}
-			if strings.Contains(path, "system/information/version") {
+			if strings.Contains(p, "system/information/version") {
 				sysInfo.Version = u.GetVal().GetStringVal()
 			}
-			if strings.Contains(path, "platform/chassis/type") {
+			if strings.Contains(p, "platform/chassis/type") {
 				sysInfo.ChassisType = u.GetVal().GetStringVal()
 			}
-			if strings.Contains(path, "platform/chassis/mac-address") {
+			if strings.Contains(p, "platform/chassis/mac-address") {
 				sysInfo.ChassisMacAddress = u.GetVal().GetStringVal()
 			}
-			if strings.Contains(path, "platform/chassis/part-number") {
+			if strings.Contains(p, "platform/chassis/part-number") {
 				sysInfo.ChassisPartNumber = u.GetVal().GetStringVal()
 			}
-			if strings.Contains(path, "platform/chassis/clei-code") {
+			if strings.Contains(p, "platform/chassis/clei-code") {
 				sysInfo.ChassisCLEICode = u.GetVal().GetStringVal()
 			}
-			if strings.Contains(path, "platform/chassis/serial-number") {
+			if strings.Contains(p, "platform/chassis/serial-number") {
 				sysInfo.ChassisSerialNumber = u.GetVal().GetStringVal()
 			}
 		}
@@ -157,9 +157,9 @@ func (a *Agent) GetMgmtAddresses(ctx context.Context) (*MgmtAddresses, error) {
 
 	for _, n := range rsp.GetNotification() {
 		for _, u := range n.GetUpdate() {
-			path := utils.GnmiPathToXPath(u.GetPath(), true)
-			if strings.HasPrefix(path, "interface") {
-				if strings.Contains(path, "/ipv4/address/status") {
+			p := path.GnmiPathToXPath(u.GetPath(), true)
+			if strings.HasPrefix(p, "interface") {
+				if strings.Contains(p, "/ipv4/address/status") {
 					ip := getPathKeyVal(u.GetPath(), "address", "ip-prefix")
 					ipPrefix := strings.Split(ip, "/")
 					if len(ipPrefix) != 2 {
@@ -169,7 +169,7 @@ func (a *Agent) GetMgmtAddresses(ctx context.Context) (*MgmtAddresses, error) {
 					prefix, _ := strconv.Atoi(ipPrefix[1])
 					mgmtIPs.IPv4Prefix = uint8(prefix)
 				}
-				if strings.Contains(path, "/ipv6/address/status") {
+				if strings.Contains(p, "/ipv6/address/status") {
 					ip := getPathKeyVal(u.GetPath(), "address", "ip-prefix")
 					ipPrefix := strings.Split(ip, "/")
 					if len(ipPrefix) != 2 {
