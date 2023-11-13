@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/nokia/srlinux-ndk-go v0.1.1-rc1
 	github.com/openconfig/gnmi v0.10.0
-	github.com/openconfig/gnmic/pkg/path v0.1.1
+	github.com/openconfig/gnmic/pkg/path v0.34.1
 	github.com/openconfig/gnmic/pkg/target v0.1.1
 	github.com/openconfig/gnmic/pkg/types v0.1.1
 	google.golang.org/grpc v1.59.0

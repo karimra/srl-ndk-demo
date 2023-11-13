@@ -57,11 +57,11 @@ github.com/nokia/srlinux-ndk-go v0.1.1-rc1 h1:CdsVZIScQC9mCjjTYVfUjE8ujeMYHj/1bs
 github.com/nokia/srlinux-ndk-go v0.1.1-rc1/go.mod h1:dNlAHszfKYnLd2+svTkHQkCwd5VZx8xEv5iifZHFZrQ=
 github.com/openconfig/gnmi v0.10.0 h1:kQEZ/9ek3Vp2Y5IVuV2L/ba8/77TgjdXg505QXvYmg8=
 github.com/openconfig/gnmi v0.10.0/go.mod h1:Y9os75GmSkhHw2wX8sMsxfI7qRGAEcDh8NTa5a8vj6E=
-github.com/openconfig/gnmic/pkg/path v0.1.1 h1:C6vZTC0NsMOGyre7ueXRS8vmYvCW9sdHKQ5cqWYiNPw=
-github.com/openconfig/gnmic/pkg/path v0.1.1/go.mod h1:Z2Ejm3UIO7WDxlXsnJmzE7/lnWe/0neCuXW6QDwmYHQ=
+github.com/openconfig/gnmic/pkg/path v0.34.1 h1:enMPNv4il5cNjXwyPZSmmQlRPONdTlPN7VMh3Y5dfh4=
+github.com/openconfig/gnmic/pkg/path v0.34.1/go.mod h1:BtTs36pDCN8hbEpdSSCfmhgSqyVj0Vjokh/sutU1bC0=
 github.com/openconfig/gnmic/pkg/target v0.1.1 h1:/XA3cFs3FTb2Bli4TdvLYf0b/ifMX1gDOMY+f8LcTr0=
 github.com/openconfig/gnmic/pkg/target v0.1.1/go.mod h1:5NF5rtYCt7e7wygyi5kUUU6YsrFLD62kDB2jaCwFUbk=
-github.com/openconfig/gnmic/pkg/testutils v0.1.0 h1:Mw6LKGqzXQnrI9fCtaCAp3pFDy2B0+rKQFtjCqQWJwM=
+github.com/openconfig/gnmic/pkg/testutils v0.0.0-20231111233637-b2f2ba97c7e5 h1:hAVCM9j7v6qWvk9PTDPToVfoqXfSJD2Q7wc4obgjnuI=
 github.com/openconfig/gnmic/pkg/types v0.1.1 h1:LczdQ/eTsnMkHJvOdu2Q5UpNqdjnzNPsjAL0fhCK410=
 github.com/openconfig/gnmic/pkg/types v0.1.1/go.mod h1:Gwc9suBy/s17bP8BaCrp3dE5E+RkcHqVIkFqdXopog4=
 github.com/openconfig/gnmic/pkg/utils v0.1.0 h1:MqRhW8oJdPpBb1UprbnpDxciBJVjl/Gw97xuNoBG3Vs=
