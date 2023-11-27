@@ -1,6 +1,8 @@
 module github.com/karimra/srl-ndk-demo
 
-go 1.18
+go 1.21.1
+
+toolchain go1.21.3
 
 require (
 	github.com/nokia/srlinux-ndk-go v0.1.1-rc1

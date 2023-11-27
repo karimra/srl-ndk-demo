@@ -12,6 +12,7 @@ import (
 	"github.com/openconfig/gnmic/pkg/target"
 	"github.com/openconfig/gnmic/pkg/types"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var grpcAddress = "localhost:50053"
@@ -80,7 +81,7 @@ func New(ctx context.Context, name string, opts ...agentOption) (*Agent, error) 
 		opt(a)
 	}
 	var err error
-	a.gRPCConn, err = grpc.Dial(grpcAddress, grpc.WithInsecure())
+	a.gRPCConn, err = grpc.Dial(grpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("grpc dial failed: %v", err)
 	}
@@ -153,4 +154,8 @@ func (a *Agent) KeepAlive(ctx context.Context, period time.Duration) {
 			return
 		}
 	}
+}
+
+func (a *Agent) GetgRPCConn() *grpc.ClientConn {
+	return a.gRPCConn
 }
