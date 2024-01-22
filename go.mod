@@ -6,8 +6,8 @@ require (
 	github.com/nokia/srlinux-ndk-go v0.1.1-rc1
 	github.com/openconfig/gnmi v0.10.0
 	github.com/openconfig/gnmic/pkg/path v0.1.1
-	github.com/openconfig/gnmic/pkg/target v0.1.1
-	github.com/openconfig/gnmic/pkg/types v0.1.1
+	github.com/openconfig/gnmic/pkg/target v0.1.4
+	github.com/openconfig/gnmic/pkg/types v0.1.2
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
 )
